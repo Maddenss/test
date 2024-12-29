@@ -1,80 +1,36 @@
-# app.py
 import streamlit as st
-import requests
-import pandas as pd
+import matplotlib.pyplot as plt
+import shap
+import time
+from model_logic import (
+    load_data,
+    load_model,
+    train_test_split_data,
+    calculate_metrics,
+)
 
-# URL FastAPI сервера (если FastAPI и Streamlit находятся на одной машине, используйте localhost)
-API_URL = "http://localhost:8000"
+MODEL_PATH = "xgboost_model.pkl"
+DATA_PATH = "Main_Data.csv"
 
-# Заголовок приложения
-st.title("Prediction and Model Analysis")
+@st.cache_data
+def cached_load_data(data_path):
+    return load_data(data_path)
 
-# Боковая панель для загрузки файла данных
-st.sidebar.header("Upload Data for Prediction")
-uploaded_file = st.sidebar.file_uploader("Upload CSV file with columns: T, E, C, FM, Xfm, AFM, Xafm", type="csv")
+@st.cache_data
+def cached_load_model(model_path):
+    return load_model(model_path)
 
-# Покажем данные, если файл загружен
-if uploaded_file is not None:
-    data = pd.read_csv(uploaded_file)
-    st.write("Uploaded Data:", data)
+st.title("AI_phase_diagram_API")
 
-    # Отправка данных для предсказания
-    if st.button("Predict"):
-        files = {"file": uploaded_file}
-        response = requests.post(f"{API_URL}/predict", files=files)
+X, y = cached_load_data(DATA_PATH)
+model = cached_load_model(MODEL_PATH)
+X_train, X_test, y_train, y_test = train_test_split_data(X, y)
 
-        if response.status_code == 200:
-            predictions = pd.DataFrame(response.json())
-            st.write("Predictions:", predictions)
-        else:
-            st.error(f"Error: {response.text}")
-
-# Метрики модели
-if st.button("Show Metrics"):
-    response = requests.get(f"{API_URL}/metrics")
-    if response.status_code == 200:
-        metrics = response.json()
-        st.write("Model Metrics:", metrics)
-    else:
-        st.error(f"Error: {response.text}")
-
-# ROC Curve
-if st.button("Show ROC Curve"):
-    response = requests.get(f"{API_URL}/roc-curve")
-    if response.status_code == 200:
-        st.image(response.content)
-    else:
-        st.error(f"Error: {response.text}")
-
-# Кросс-валидация: результаты
-if st.button("Show Cross-Validation Results"):
-    response = requests.get(f"{API_URL}/cross-validation")
-    if response.status_code == 200:
-        results = response.json()
-        st.write("Cross-Validation Results:", results)
-    else:
-        st.error(f"Error: {response.text}")
-
-# Кросс-валидация с визуализацией ROC-AUC
-if st.button("Show Cross-Validation ROC-AUC Plot"):
-    response = requests.get(f"{API_URL}/cross-validation/plot")
-    if response.status_code == 200:
-        st.image(response.content)
-    else:
-        st.error(f"Error: {response.text}")
-
-# Важность признаков
-if st.button("Show Feature Importance"):
-    response = requests.get(f"{API_URL}/feature-importance")
-    if response.status_code == 200:
-        st.image(response.content)
-    else:
-        st.error(f"Error: {response.text}")
-
-# SHAP-анализ
-if st.button("Show SHAP Analysis"):
-    response = requests.get(f"{API_URL}/shap-analysis")
-    if response.status_code == 200:
-        st.image(response.content)
-    else:
-        st.error(f"Error: {response.text}")
+st.header("Метрики модели")
+if st.button("Рассчитать метрики"):
+    with st.spinner("Расчет метрик модели..."):
+        start_time = time.time()
+        metrics = calculate_metrics(model, X_test, y_test)
+        st.json(metrics)
+        elapsed_time = time.time() - start_time
+        st.write(f"Время выполнения: {elapsed_time:.2f} секунд")
