@@ -2,7 +2,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import shap
 import time
-from model_logic import (
+from main import (
     load_data,
     load_model,
     train_test_split_data,
